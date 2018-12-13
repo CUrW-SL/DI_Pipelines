@@ -14,7 +14,7 @@ from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlg
 
 wrf_results_nfs = Variable.get("WRF_RESULTS_NFS")
 interim_data_nfs = Variable.get("INTERIM_DATA_NFS")
-raincell_config_fp = path.join('DI_Pipelines', 'no_rf_correction', 'prod_wflow_no_rf_correction_raincell.json')
+raincell_config_fp = path.join('dags', 'DI_Pipelines', 'no_rf_correction', 'prod_wflow_no_rf_correction_raincell.json')
 
 todays_date_str = datetime.utcnow().strftime('%Y-%m-%d')
 run_name = 'daily_no_correction'
