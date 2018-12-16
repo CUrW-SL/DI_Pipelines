@@ -15,8 +15,10 @@ from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlg
 wrf_results_nfs = Variable.get("WRF_RESULTS_NFS")
 interim_data_nfs = Variable.get("INTERIM_DATA_NFS")
 airflow_home = Variable.get("AIRFLOW_HOME")
-raincell_config_fp = path.join(airflow_home, 'dags', 'DI_Pipelines', 'no_rf_correction',
-                               'prod_wflow_no_rf_correction_raincell.json')
+
+di_pipelines_dir = path.join(airflow_home, 'dags', 'DI_Pipelines')
+resources_dir = path.join(di_pipelines_dir, 'resources')
+raincell_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_raincell.json')
 
 todays_date_str = datetime.utcnow().strftime('%Y-%m-%d')
 run_name = 'daily_no_correction'
@@ -32,6 +34,8 @@ def prepare_raincell_config(run_dir, json_config_fp):
     with open(json_config_fp) as f:
         configs = json.load(f)
         configs['output_config']['outflow_dat_fp'] = path.join(raincell_out_dir, 'RAINCELL.DAT')
+        configs['input_config']['kelani_basin_cell_lon_lat_map_file'] = \
+            path.join(resources_dir, 'flo2d', 'model-250m', 'cell-map', 'kelani_basin_points_250m.txt')
         return configs
 
 
