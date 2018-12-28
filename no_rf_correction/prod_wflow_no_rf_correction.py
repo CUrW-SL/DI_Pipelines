@@ -45,10 +45,14 @@ start_dt = base_dt - timedelta(days=2)
 end_dt = base_dt + timedelta(days=3)
 
 
-def create_raincell(configs, start_dt, base_dt, end_dt):
+def create_raincell(configs, start_dt, base_dt, end_dt, **kwargs):
     raincell_config = Config(configs)
     raincell_io = RaincellNcfIO(raincell_config)
     outflow_algo = RaincellAlgo(raincell_io, raincell_config)
+
+    schedule_dt = kwargs['ds']
+    print(schedule_dt)
+
     outflow_algo.execute(
         ncfs={
             'nc_f': path.join(wrf_results_nfs, "wrf0_2018-12-11_18:00_0000/wrf/wrfout_d03_2018-12-11_18:00:00_rf"),
@@ -72,7 +76,7 @@ default_args = {
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
-    'end_date': datetime(2018, 12, 14),
+    'provide_context': True
 }
 
 dag = DAG('prod_wflow_no_rf_correction', default_args=default_args, schedule_interval=timedelta(days=1))
