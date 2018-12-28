@@ -12,6 +12,8 @@ import json
 from algo_wrapper import Config
 from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlgo
 
+DATE_FORMAT = '%Y-%m-%d'
+
 wrf_results_nfs = Variable.get("WRF_RESULTS_NFS")
 interim_data_nfs = Variable.get("INTERIM_DATA_NFS")
 airflow_home = Variable.get("AIRFLOW_HOME")
@@ -20,7 +22,7 @@ di_pipelines_dir = path.join(airflow_home, 'dags', 'DI_Pipelines')
 resources_dir = path.join(di_pipelines_dir, 'resources')
 raincell_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_raincell.json')
 
-todays_date_str = datetime.utcnow().strftime('%Y-%m-%d')
+todays_date_str = datetime.utcnow().strftime(DATE_FORMAT)
 run_name = 'daily_no_correction'
 
 run_dir_tree = path.join(interim_data_nfs, todays_date_str, run_name)
@@ -40,7 +42,7 @@ def prepare_raincell_config(run_dir, json_config_fp):
 
 
 raincell_configs = prepare_raincell_config(run_dir_tree, raincell_config_fp)
-base_dt = datetime.strptime(todays_date_str, '%Y-%m-%d')
+base_dt = datetime.strptime(todays_date_str, DATE_FORMAT)
 start_dt = base_dt - timedelta(days=2)
 end_dt = base_dt + timedelta(days=3)
 
@@ -50,15 +52,24 @@ def create_raincell(configs, start_dt, base_dt, end_dt, **kwargs):
     raincell_io = RaincellNcfIO(raincell_config)
     outflow_algo = RaincellAlgo(raincell_io, raincell_config)
 
-    schedule_dt = kwargs['ds']
-    print(schedule_dt)
+    schedule_date_str = kwargs['ds']
+    schedule_date = datetime.strptime(schedule_date_str, DATE_FORMAT)
+
+    nc_f_format = "wrf0_{0}_18:00_0000/wrf/wrfout_d03_{0}_18:00:00_rf"
+    nc_f = nc_f_format.format(schedule_date.strftime(DATE_FORMAT))
+    nc_f_prev_1 = nc_f_format.format((schedule_date - timedelta(days=1)).strftime(DATE_FORMAT))
+    nc_f_prev_2 = nc_f_format.format((schedule_date - timedelta(days=2)).strftime(DATE_FORMAT))
+
+    print(nc_f)
+    print(nc_f_prev_1)
+    print(nc_f_prev_2)
 
     outflow_algo.execute(
         ncfs={
-            'nc_f': path.join(wrf_results_nfs, "wrf0_2018-12-11_18:00_0000/wrf/wrfout_d03_2018-12-11_18:00:00_rf"),
+            'nc_f': path.join(wrf_results_nfs, nc_f),
             'nc_f_prev_days': [
-                path.join(wrf_results_nfs, "wrf0_2018-12-10_18:00_0000/wrf/wrfout_d03_2018-12-10_18:00:00_rf"),
-                path.join(wrf_results_nfs, "wrf0_2018-12-09_18:00_0000/wrf/wrfout_d03_2018-12-09_18:00:00_rf")
+                path.join(wrf_results_nfs, nc_f_prev_1),
+                path.join(wrf_results_nfs, nc_f_prev_2)
             ]
             },
         start_dt=start_dt,
