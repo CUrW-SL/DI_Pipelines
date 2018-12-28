@@ -11,6 +11,7 @@ import json
 
 from algo_wrapper import Config
 from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlgo
+from flo2d_input_preparation.inflow.inflow import InflowIO, InflowAlgo
 
 DATE_FORMAT = '%Y-%m-%d'
 
@@ -20,12 +21,15 @@ airflow_home = Variable.get("AIRFLOW_HOME")
 
 di_pipelines_dir = path.join(airflow_home, 'dags', 'DI_Pipelines')
 resources_dir = path.join(di_pipelines_dir, 'resources')
-raincell_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_raincell.json')
 
 todays_date_str = datetime.utcnow().strftime(DATE_FORMAT)
 run_name = 'daily_no_correction'
-
 run_dir_tree = path.join(interim_data_nfs, todays_date_str, run_name)
+
+
+"""
+Create RAINCELL.DAT
+"""
 
 
 def prepare_raincell_config(run_dir, json_config_fp):
@@ -41,19 +45,17 @@ def prepare_raincell_config(run_dir, json_config_fp):
         return configs
 
 
-raincell_configs = prepare_raincell_config(run_dir_tree, raincell_config_fp)
-base_dt = datetime.strptime(todays_date_str, DATE_FORMAT)
-start_dt = base_dt - timedelta(days=2)
-end_dt = base_dt + timedelta(days=3)
-
-
-def create_raincell(configs, start_dt, base_dt, end_dt, **kwargs):
+def create_raincell(configs, **kwargs):
     raincell_config = Config(configs)
     raincell_io = RaincellNcfIO(raincell_config)
-    outflow_algo = RaincellAlgo(raincell_io, raincell_config)
+    raincell_algo = RaincellAlgo(raincell_io, raincell_config)
 
     schedule_date_str = kwargs['ds']
     schedule_date = datetime.strptime(schedule_date_str, DATE_FORMAT)
+
+    base_dt = schedule_date
+    start_dt = base_dt - timedelta(days=2)
+    end_dt = base_dt + timedelta(days=3)
 
     nc_f_format = "wrf0_{0}_18:00_0000/wrf/wrfout_d03_{0}_18:00:00_rf"
     nc_f = nc_f_format.format(schedule_date.strftime(DATE_FORMAT))
@@ -64,7 +66,7 @@ def create_raincell(configs, start_dt, base_dt, end_dt, **kwargs):
     print(nc_f_prev_1)
     print(nc_f_prev_2)
 
-    outflow_algo.execute(
+    raincell_algo.execute(
         ncfs={
             'nc_f': path.join(wrf_results_nfs, nc_f),
             'nc_f_prev_days': [
@@ -72,6 +74,42 @@ def create_raincell(configs, start_dt, base_dt, end_dt, **kwargs):
                 path.join(wrf_results_nfs, nc_f_prev_2)
             ]
             },
+        start_dt=start_dt,
+        base_dt=base_dt,
+        end_dt=end_dt,
+    )
+
+
+"""
+Create INFLOW.DAT
+"""
+
+
+def prepare_inflow_config(run_dir, json_config_fp):
+    # Prepare dir tree for the output.
+    inflow_out_dir = path.join(run_dir, 'inflow')
+    if not path.exists(inflow_out_dir):
+        makedirs(inflow_out_dir)
+    with open(json_config_fp) as f:
+        configs = json.load(f)
+        configs['output_config']['inflow_dat_fp'] = path.join(inflow_out_dir, 'INFLOW.DAT')
+        configs['algo_config']['init_wl_config'] = path.join(resources_dir, 'flo2d', 'model-250m', 'INITWL.CONF')
+        return configs
+
+
+def create_inflow(configs, **kwargs):
+    inflow_config = Config(configs)
+    inflow_io = InflowIO(inflow_config)
+    inflow_algo = InflowAlgo(inflow_io, inflow_config)
+
+    schedule_date_str = kwargs['ds']
+    schedule_date = datetime.strptime(schedule_date_str, DATE_FORMAT)
+
+    base_dt = schedule_date
+    start_dt = base_dt - timedelta(days=2)
+    end_dt = base_dt + timedelta(days=3)
+
+    inflow_algo.execute(
         start_dt=start_dt,
         base_dt=base_dt,
         end_dt=end_dt,
@@ -92,9 +130,20 @@ default_args = {
 
 dag = DAG('prod_wflow_no_rf_correction', default_args=default_args, schedule_interval=timedelta(days=1))
 
+raincell_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_raincell.json')
+raincell_configs = prepare_raincell_config(run_dir_tree, raincell_config_fp)
 task_create_raincell = PythonOperator(
     task_id='create_raincell',
     dag=dag,
     python_callable=create_raincell,
-    op_args=[raincell_configs, start_dt, base_dt, end_dt]
+    op_args=[raincell_configs]
+)
+
+inflow_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_inflow.json')
+inflow_configs = prepare_inflow_config(run_dir_tree, inflow_config_fp)
+task_create_raincell = PythonOperator(
+    task_id='create_inflow',
+    dag=dag,
+    python_callable=create_inflow,
+    op_args=[inflow_configs]
 )

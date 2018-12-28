@@ -1,0 +1,34 @@
+{
+  "algo_config": {
+    "init_wl_config": "absolute path to INITWL.CONF",
+    "DAT_WIDTH": 12,
+    "IHOURDAILY": 0,
+    "IDEPLT": 0,
+    "IFC": "C",
+    "INOUTFC": 0,
+    "KHIN": 8655,
+    "HYDCHAR": "H"
+  },
+
+  "input_config": {
+    "inflow-forecast-tms-meta": {
+      "run_name": "Cloud-1",
+      "station_name": "Hanwella",
+      "variable": "Discharge",
+      "unit": "m3/s",
+      "event_type": "Forecast",
+      "source": "HEC-HMS"
+    },
+    "db_config": {
+      "host": "192.168.1.102",
+      "port": 3306,
+      "user": "root",
+      "password": "cfcwm07",
+      "db": "curw"
+    }
+  },
+
+  "output_config": {
+    "inflow_dat_fp": "absolute path to output INFLOW.DAT"
+  }
+}
