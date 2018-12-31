@@ -13,6 +13,7 @@ from algo_wrapper import Config
 from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlgo
 from flo2d_input_preparation.inflow.inflow import InflowIO, InflowAlgo
 from flo2d_input_preparation.outflow.outflow import OutflowIO, OutflowAlgo
+from hec_hms_input_preparation.rain_csv.rain_csv import RainCsvIO, RainCsvAlgo
 
 DATE_FORMAT = '%Y-%m-%d'
 
@@ -152,6 +153,41 @@ def create_outflow(configs, **kwargs):
     )
 
 
+"""
+Create DailyRain.csv
+"""
+
+
+def prepare_dailyraincsv_config(run_dir, json_config_fp):
+    # Prepare dir tree for the output.
+    dailyraincsv_out_dir = path.join(run_dir, 'dailyraincsv')
+    if not path.exists(dailyraincsv_out_dir):
+        makedirs(dailyraincsv_out_dir)
+    with open(json_config_fp) as f:
+        configs = json.load(f)
+        configs['output_config']['rain_csv_fp'] = path.join(dailyraincsv_out_dir, 'DailyRain.csv')
+        return configs
+
+
+def create_dailyraincsv(configs, **kwargs):
+    dailyraincsv_config = Config(configs)
+    dailyraincsv_io = RainCsvIO(dailyraincsv_config)
+    dailyraincsv_algo = RainCsvAlgo(dailyraincsv_io, dailyraincsv_config)
+
+    schedule_date_str = kwargs['ds']
+    schedule_date = datetime.strptime(schedule_date_str, DATE_FORMAT)
+
+    base_dt = schedule_date
+    start_dt = base_dt - timedelta(days=2)
+    end_dt = base_dt + timedelta(days=3)
+
+    dailyraincsv_algo.execute(
+        start_dt=start_dt,
+        base_dt=base_dt,
+        end_dt=end_dt
+    )
+
+
 default_args = {
     'owner': 'thilinamad',
     'depends_on_past': False,
@@ -191,4 +227,13 @@ task_create_outflow = PythonOperator(
     dag=dag,
     python_callable=create_outflow,
     op_args=[outflow_configs]
+)
+
+dailyraincsv_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_dailyraincsv.json')
+dailyraincsv_configs = prepare_dailyraincsv_config(run_dir_tree, dailyraincsv_config_fp)
+task_create_dailyraincsv = PythonOperator(
+    task_id='create_dailyraincsv',
+    dag=dag,
+    python_callable=create_dailyraincsv,
+    op_args=[dailyraincsv_configs]
 )
