@@ -12,6 +12,7 @@ import json
 from algo_wrapper import Config
 from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlgo
 from flo2d_input_preparation.inflow.inflow import InflowIO, InflowAlgo
+from flo2d_input_preparation.outflow.outflow import OutflowIO, OutflowAlgo
 
 DATE_FORMAT = '%Y-%m-%d'
 
@@ -116,6 +117,41 @@ def create_inflow(configs, **kwargs):
     )
 
 
+"""
+Create OUTFLOW.DAT
+"""
+
+
+def prepare_outflow_config(run_dir, json_config_fp):
+    # Prepare dir tree for the output.
+    outflow_out_dir = path.join(run_dir, 'outflow')
+    if not path.exists(outflow_out_dir):
+        makedirs(outflow_out_dir)
+    with open(json_config_fp) as f:
+        configs = json.load(f)
+        configs['output_config']['outflow_dat_fp'] = path.join(outflow_out_dir, 'OUTFLOW.DAT')
+        configs['algo_config']['init_tidal_config'] = path.join(resources_dir, 'flo2d', 'model-250m', 'INITTIDAL.CONF')
+        return configs
+
+
+def create_outflow(configs, **kwargs):
+    outflow_config = Config(configs)
+    outflow_io = OutflowIO(outflow_config)
+    outflow_algo = OutflowAlgo(outflow_io, outflow_config)
+
+    schedule_date_str = kwargs['ds']
+    schedule_date = datetime.strptime(schedule_date_str, DATE_FORMAT)
+
+    base_dt = schedule_date
+    start_dt = base_dt - timedelta(days=2)
+    end_dt = base_dt + timedelta(days=3)
+
+    outflow_algo.execute(
+        start_dt=start_dt,
+        end_dt=end_dt
+    )
+
+
 default_args = {
     'owner': 'thilinamad',
     'depends_on_past': False,
@@ -141,9 +177,18 @@ task_create_raincell = PythonOperator(
 
 inflow_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_inflow.json')
 inflow_configs = prepare_inflow_config(run_dir_tree, inflow_config_fp)
-task_create_raincell = PythonOperator(
+task_create_inflow = PythonOperator(
     task_id='create_inflow',
     dag=dag,
     python_callable=create_inflow,
     op_args=[inflow_configs]
+)
+
+outflow_config_fp = path.join(di_pipelines_dir, 'no_rf_correction', 'prod_wflow_no_rf_correction_outflow.json')
+outflow_configs = prepare_outflow_config(run_dir_tree, outflow_config_fp)
+task_create_outflow = PythonOperator(
+    task_id='create_outflow',
+    dag=dag,
+    python_callable=create_outflow,
+    op_args=[outflow_configs]
 )

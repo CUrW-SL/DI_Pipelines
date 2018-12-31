@@ -1,0 +1,28 @@
+{
+  "algo_config": {
+    "init_tidal_config": "absolute path to INITTIDAL.CONF",
+    "DAT_WIDTH": 12
+  },
+
+  "input_config": {
+    "tidal-forecast-timeseries-meta": {
+      "run_name": "Tidal Data",
+      "station_name": "Colombo",
+      "variable": "Waterlevel",
+      "unit": "m",
+      "event_type": "Forecast",
+      "source": "WeatherStation"
+    },
+    "db_config": {
+      "host": "192.168.1.102",
+      "port": 3306,
+      "user": "airflow_curw",
+      "password": "airflowCurw07#",
+      "db": "curw"
+    }
+  },
+
+  "output_config": {
+    "outflow_dat_fp": "absolute path to output OUTFLOW.DAT"
+  }
+}
