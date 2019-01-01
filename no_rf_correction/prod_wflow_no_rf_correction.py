@@ -17,6 +17,7 @@ from flo2d_input_preparation.outflow.outflow import OutflowIO, OutflowAlgo
 from hec_hms_input_preparation.rain_csv.rain_csv import RainCsvIO, RainCsvAlgo
 
 DATE_FORMAT = '%Y-%m-%d'
+DATE_TIME_FORMAT = '%Y-%m-%d_00:00:00'
 
 wrf_results_nfs = Variable.get("WRF_RESULTS_NFS")
 interim_data_nfs = Variable.get("INTERIM_DATA_NFS")
@@ -240,12 +241,32 @@ task_create_dailyraincsv = PythonOperator(
 )
 
 
+def get_hec_hms_files(abs_path_to_rain_csv, abs_path_to_init_state):
+    rain_csv = open(abs_path_to_rain_csv, 'rb')
+    # init_state = open(abs_path_to_init_state, 'rb')
+    return {
+        "rainfall": rain_csv,
+        "init-state": ''
+    }
+
+
 # Trigger HEC-HMS run
 task_trigger_hec_hms = SimpleHttpOperator(
     task_id='init-hec-hms-run',
     dag=dag,
     http_conn_id='hec-hms-rest-service',
-    method='GET',
-    endpoint='',
-    response_check=lambda response: True if 'Welcome' in response.content else False
+    method='POST',
+    endpoint='hec_hms/single/init-run',
+    response_check=lambda response: True if response.status_code == 200 else False,
+    data=json.dumps({
+        "run-name": run_name,
+        "run-dt": "{{ execution_date.strftime(DATE_TIME_FORMAT) }}",
+        "start-dt": "{{ (execution_date - macros.timedelta(days=2)).strftime(DATE_TIME_FORMAT) }}",
+        "end-dt": "{{ (execution_date + macros.timedelta(days=3)).strftime(DATE_TIME_FORMAT) }}",
+        "save-state-dt": "{{ (execution_date + macros.timedelta(days=1)).strftime(DATE_TIME_FORMAT) }}"
+    }),
+    files="{{ get_hec_hms_files(dailyraincsv_configs['output_config']['rain_csv_fp'], None) }}"
 )
+
+
+task_create_dailyraincsv >> task_trigger_hec_hms
