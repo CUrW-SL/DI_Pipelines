@@ -2,6 +2,7 @@
 from airflow import DAG
 # Operators; we need this to operate!
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.http_operator import SimpleHttpOperator
 # Airflow varibales; can be specified in UI.
 from airflow.models import Variable
 
@@ -236,4 +237,15 @@ task_create_dailyraincsv = PythonOperator(
     dag=dag,
     python_callable=create_dailyraincsv,
     op_args=[dailyraincsv_configs]
+)
+
+
+# Trigger HEC-HMS run
+task_trigger_hec_hms = SimpleHttpOperator(
+    task_id='init-hec-hms-run',
+    dag=dag,
+    http_conn_id='hec-hms-rest-service',
+    method='GET',
+    endpoint='',
+    response_check=lambda response: True if 'Welcome' in response.content else False
 )
