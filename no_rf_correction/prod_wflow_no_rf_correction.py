@@ -1,14 +1,14 @@
-# The DAG object; we'll need this to instantiate a DAG
 from airflow import DAG
-# Operators; we need this to operate!
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.http_operator import SimpleHttpOperator
+# Airflow custom plugin. Impl should be available in $AIRFLOW_HOME/plugins folder.
+from airflow.hooks.file_upload_http_plugin import FileUploadHttpHook
 # Airflow varibales; can be specified in UI.
 from airflow.models import Variable
 
+import json
 from datetime import datetime, timedelta
 from os import path, makedirs
-import json
+
 
 from algo_wrapper import Config
 from flo2d_input_preparation.raincell.raincell import RaincellNcfIO, RaincellAlgo
@@ -190,6 +190,36 @@ def create_dailyraincsv(configs, **kwargs):
     )
 
 
+"""
+Init Hec-HMS Run
+"""
+
+
+def init_hec_hms_run(name, rain_csv_fp, init_state_fp, **kwargs):
+    schedule_date_str = kwargs['ds']
+    schedule_date = datetime.strptime(schedule_date_str, DATE_FORMAT)
+
+    run_dt = schedule_date
+    start_dt = run_dt - timedelta(days=2)
+    end_dt = run_dt + timedelta(days=3)
+    save_state_dt = start_dt + timedelta(days=1)
+    data = {
+        'run-name': name,
+        'run-dt': run_dt.strftime(DATE_TIME_FORMAT),
+        'start-dt': start_dt.strftime(DATE_TIME_FORMAT),
+        'end-dt': end_dt.strftime(DATE_TIME_FORMAT),
+        'save-state-dt': save_state_dt.strftime(DATE_TIME_FORMAT)
+    }
+
+    end_point = 'hec_hms/single/init-run'
+    http = FileUploadHttpHook(method='POST', http_conn_id='hec-hms-rest-service')
+
+    with open(rain_csv_fp, 'rb') as rain_csv, open(init_state_fp, 'rb') as init_state:
+        files = {"rainfall": rain_csv, "init-state": init_state}
+        response = http.run(end_point, data=json.dumps(data), files=files)
+        print(response)
+
+
 default_args = {
     'owner': 'thilinamad',
     'depends_on_past': False,
@@ -240,33 +270,12 @@ task_create_dailyraincsv = PythonOperator(
     op_args=[dailyraincsv_configs]
 )
 
-
-def get_hec_hms_files(abs_path_to_rain_csv, abs_path_to_init_state):
-    rain_csv = open(abs_path_to_rain_csv, 'rb')
-    # init_state = open(abs_path_to_init_state, 'rb')
-    return {
-        "rainfall": rain_csv,
-        "init-state": ''
-    }
-
-
-# Trigger HEC-HMS run
-task_trigger_hec_hms = SimpleHttpOperator(
-    task_id='init-hec-hms-run',
+task_init_hec_hms_run = PythonOperator(
+    task_id='init_hec_hms_run',
     dag=dag,
-    http_conn_id='hec-hms-rest-service',
-    method='POST',
-    endpoint='hec_hms/single/init-run',
-    response_check=lambda response: True if response.status_code == 200 else False,
-    data=json.dumps({
-        "run-name": run_name,
-        "run-dt": "{{ execution_date.strftime(DATE_TIME_FORMAT) }}",
-        "start-dt": "{{ (execution_date - macros.timedelta(days=2)).strftime(DATE_TIME_FORMAT) }}",
-        "end-dt": "{{ (execution_date + macros.timedelta(days=3)).strftime(DATE_TIME_FORMAT) }}",
-        "save-state-dt": "{{ (execution_date + macros.timedelta(days=1)).strftime(DATE_TIME_FORMAT) }}"
-    }),
-    files="{{ get_hec_hms_files(dailyraincsv_configs['output_config']['rain_csv_fp'], None) }}"
+    python_callable=init_hec_hms_run,
+    op_args=[run_name, dailyraincsv_configs['output_config']['rain_csv_fp'],
+             dailyraincsv_configs['output_config']['rain_csv_fp']],
 )
 
-
-task_create_dailyraincsv >> task_trigger_hec_hms
+task_create_dailyraincsv >> task_init_hec_hms_run
