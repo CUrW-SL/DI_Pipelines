@@ -216,7 +216,7 @@ def init_hec_hms_run(name, rain_csv_fp, init_state_fp, **kwargs):
 
     with open(rain_csv_fp, 'rb') as rain_csv, open(init_state_fp, 'rb') as init_state:
         files = {"rainfall": rain_csv, "init-state": init_state}
-        response = http.run(end_point, data=json.dumps(data), files=files)
+        response = http.run(end_point, data=data, files=files)
         print(response)
 
 
