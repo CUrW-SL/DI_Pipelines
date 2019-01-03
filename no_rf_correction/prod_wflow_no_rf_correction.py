@@ -216,8 +216,11 @@ def init_hec_hms_run(name, rain_csv_fp, init_state_fp, **kwargs):
 
     with open(rain_csv_fp, 'rb') as rain_csv, open(init_state_fp, 'rb') as init_state:
         files = {"rainfall": rain_csv, "init-state": init_state}
-        response = http.run(end_point, params=data, files=files, extra_options={'check_response': False})
-        print(response)
+        response = http.run(end_point, params=data, files=files, extra_options={'check_response': True})
+        resp_dict = response.json()
+        run_id = resp_dict['run_id']
+        print(resp_dict)
+        return run_id
 
 
 default_args = {
@@ -276,6 +279,7 @@ task_init_hec_hms_run = PythonOperator(
     python_callable=init_hec_hms_run,
     op_args=[run_name, dailyraincsv_configs['output_config']['rain_csv_fp'],
              dailyraincsv_configs['output_config']['rain_csv_fp']],
+    xcom_push=True,
 )
 
 task_create_dailyraincsv >> task_init_hec_hms_run
