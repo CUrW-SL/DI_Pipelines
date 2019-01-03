@@ -278,8 +278,7 @@ task_init_hec_hms_run = PythonOperator(
     dag=dag,
     python_callable=init_hec_hms_run,
     op_args=[run_name, dailyraincsv_configs['output_config']['rain_csv_fp'],
-             dailyraincsv_configs['output_config']['rain_csv_fp']],
-    xcom_push=True,
+             dailyraincsv_configs['output_config']['rain_csv_fp']]
 )
 
 task_create_dailyraincsv >> task_init_hec_hms_run
