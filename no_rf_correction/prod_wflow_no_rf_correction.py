@@ -1,5 +1,6 @@
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
+from airflow.contrib.sensors.file_sensor import FileSensor
 # Airflow custom plugin. Impl should be available in $AIRFLOW_HOME/plugins folder.
 from airflow.hooks.file_upload_http_plugin import FileUploadHttpHook
 # Airflow varibales; can be specified in UI.
@@ -29,6 +30,8 @@ resources_dir = path.join(di_pipelines_dir, 'resources')
 todays_date_str = datetime.utcnow().strftime(DATE_FORMAT)
 run_name = 'daily_no_correction'
 run_dir_tree = path.join(interim_data_nfs, todays_date_str, run_name)
+
+nc_f_format = "wrf0_{0}_18:00_0000/wrf/wrfout_d03_{0}_18:00:00_rf"
 
 
 """
@@ -61,7 +64,6 @@ def create_raincell(configs, **kwargs):
     start_dt = base_dt - timedelta(days=2)
     end_dt = base_dt + timedelta(days=3)
 
-    nc_f_format = "wrf0_{0}_18:00_0000/wrf/wrfout_d03_{0}_18:00:00_rf"
     nc_f = nc_f_format.format(schedule_date.strftime(DATE_FORMAT))
     nc_f_prev_1 = nc_f_format.format((schedule_date - timedelta(days=1)).strftime(DATE_FORMAT))
     nc_f_prev_2 = nc_f_format.format((schedule_date - timedelta(days=2)).strftime(DATE_FORMAT))
@@ -299,4 +301,12 @@ task_start_hec_hms_run = PythonOperator(
     python_callable=start_hec_hms_run
 )
 
-task_create_dailyraincsv >> task_init_hec_hms_run >> task_start_hec_hms_run
+task_wait_till_wrf_output = FileSensor(
+    task_id='wait_till_wrf_output',
+    dag=dag,
+    fs_conn_id='WRF_RESULTS_NFS',
+    filepath="{{ nc_f_format.format(execution_date.strftime(DATE_FORMAT)) }}"
+)
+
+task_wait_till_wrf_output >> task_create_dailyraincsv >> task_init_hec_hms_run >> task_start_hec_hms_run
+task_start_hec_hms_run >> [task_create_raincell, task_create_inflow, task_create_outflow]
