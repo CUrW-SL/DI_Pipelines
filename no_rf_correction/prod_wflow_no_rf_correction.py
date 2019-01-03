@@ -223,6 +223,18 @@ def init_hec_hms_run(name, rain_csv_fp, init_state_fp, **kwargs):
         return run_id
 
 
+"""
+Start Hec-HMS Run
+"""
+
+
+def start_hec_hms_run(**kwargs):
+    ti = kwargs['ti']
+    # get run_id
+    run_id = ti.xcom_pull(task_ids='init_hec_hms_run')
+    print(run_id)
+
+
 default_args = {
     'owner': 'thilinamad',
     'depends_on_past': False,
@@ -281,4 +293,10 @@ task_init_hec_hms_run = PythonOperator(
              dailyraincsv_configs['output_config']['rain_csv_fp']]
 )
 
-task_create_dailyraincsv >> task_init_hec_hms_run
+task_start_hec_hms_run = PythonOperator(
+    task_id='start_hec_hms_run',
+    dag=dag,
+    python_callable=start_hec_hms_run
+)
+
+task_create_dailyraincsv >> task_init_hec_hms_run >> task_start_hec_hms_run
