@@ -305,7 +305,7 @@ task_wait_till_wrf_output = FileSensor(
     task_id='wait_till_wrf_output',
     dag=dag,
     fs_conn_id='WRF_RESULTS_NFS',
-    filepath='{{ "{{ nc_f_format }}".format(execution_date.strftime("{{ DATE_FORMAT }}")) }}'
+    filepath='{{ "wrf0_{0}_18:00_0000/wrf/wrfout_d03_{0}_18:00:00_rf".format(execution_date.strftime("%Y-%m-%d")) }}'
 )
 
 task_wait_till_wrf_output >> task_create_dailyraincsv >> task_init_hec_hms_run >> task_start_hec_hms_run
