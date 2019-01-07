@@ -240,7 +240,7 @@ def start_hec_hms_run(**kwargs):
 default_args = {
     'owner': 'thilinamad',
     'depends_on_past': False,
-    'start_date': datetime(2018, 12, 11),
+    'start_date': datetime(2019, 1, 1),
     'email': ['madumalt@gmail.com'],
     'email_on_failure': False,
     'email_on_retry': False,
